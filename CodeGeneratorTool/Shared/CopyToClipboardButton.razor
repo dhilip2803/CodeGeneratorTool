@@ -1,0 +1,18 @@
+﻿@inject IJSRuntime JS
+
+<button class="btn btn-outline-secondary" @onclick="CopyText">@ButtonText</button>
+
+@code {
+    [Parameter]
+    public string TextToCopy { get; set; }
+
+    private string ButtonText = "Copy Code";
+
+    private async Task CopyText()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", TextToCopy);
+        ButtonText = "Copied!";
+        await Task.Delay(2000);
+        ButtonText = "Copy Code";
+    }
+}

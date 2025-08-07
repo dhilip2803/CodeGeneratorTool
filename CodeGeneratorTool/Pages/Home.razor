@@ -1,0 +1,342 @@
+﻿@page "/"
+@using System.Text
+@inject IJSRuntime JS
+
+<h3>Controller/Method Generator</h3>
+
+<div class="mb-3">
+    <label>Generate:</label>
+    <select @bind="GenerationMode" class="form-select">
+        <option value="Controller">Full Controller</option>
+        <option value="Method">Controller Method</option>
+    </select>
+</div>
+
+@if (GenerationMode == "Controller")
+{
+    <div class="mb-3">
+        <label>Controller Name:</label>
+        <input class="form-control" @bind="ControllerName" />
+    </div>
+
+    <div class="mb-3">
+        <input type="checkbox" @bind="InjectLogger" />
+        <label> Inject ILogger</label>
+    </div>
+
+    <div class="mb-3">
+        <input type="checkbox" @bind="InjectService" />
+        <label> Inject Service</label>
+        @if (InjectService)
+        {
+            <input class="form-control mt-1" placeholder="Service Name (e.g., IInventoryService)" @bind="IServiceName" />
+        }
+    </div>
+}
+
+<div class="mb-3">
+    <label>Method Name:</label>
+    <input class="form-control" @bind="MethodName" />
+</div>
+
+<div class="mb-3">
+    <label>HTTP Verb:</label>
+    <select @bind="HttpVerb" class="form-select">
+        <option>HttpGet</option>
+        <option>HttpPost</option>
+        <option>HttpPut</option>
+        <option>HttpDelete</option>
+    </select>
+</div>
+
+<div class="mb-3">
+    <label>Route Name:</label>
+    <input class="form-control" @bind="RouteName" />
+</div>
+
+<div class="mb-3">
+    <label>Return Type:</label>
+    <select @bind="ReturnType" class="form-select">
+        <option>ActionResult</option>
+        <option>Task</option>
+        <option value="other">Other</option>
+    </select>
+    @if (ReturnType == "other")
+    {
+        <input placeholder="Custom Return Type" class="form-control mt-1" @bind="CustomReturnType" />
+    }
+</div>
+<div class="mb-3">
+    <input  type="checkbox" @bind="RequireAuthorization" />
+    <label>Require Authorization</label>
+</div>
+
+<div class="mb-3">
+    <input type="checkbox" @bind="IsAsync" />
+    <label> Is Async</label>
+</div>
+
+<div class="mb-3">
+    <input type="checkbox" @bind="WrapInTryCatch" />
+    <label> Wrap in try-catch</label>
+</div>
+
+<h5>Method Parameters</h5>
+@foreach (var param in Parameters)
+{
+    <div class="row mb-2">
+        <div class="col">
+            <input class="form-control" placeholder="Parameter Name" @bind="param.Name" />
+        </div>
+        <div class="col">
+            <select class="form-select" @bind="param.Type">
+                <option>string</option>
+                <option>int</option>
+                <option>bool</option>
+                <option value="other">Other</option>
+            </select>
+            @if (param.Type == "other")
+            {
+                <input placeholder="Custom Type" class="form-control mt-1" @bind="param.CustomType" />
+            }
+        </div>
+        <div class="col">
+            <select class="form-select" @bind="param.Binding">
+                <option>FromBody</option>
+                <option>FromQuery</option>
+                <option>FromRoute</option>
+                <option>FromForm</option>
+                <option>None</option>
+            </select>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-danger" @onclick="() => RemoveParameter(param)">X</button>
+        </div>
+    </div>
+}
+
+
+<div class="mb-3">
+    <button class="btn btn-secondary mb-3" @onclick="AddParameter">Add Parameter</button>
+</div>
+
+<div class="form-check mb-3">
+    <input class="form-check-input" type="checkbox" @bind="IncludeServiceCall" id="serviceCallCheck" />
+    <label class="form-check-label" for="serviceCallCheck">Include Service Call</label>
+</div>
+
+@if (IncludeServiceCall)
+{
+    <div class="mb-3">
+        <label>Service Interface (e.g., IInventoryService):</label>
+        <input class="form-control" @bind="ServiceInterface" />
+    </div>
+    <div class="mb-3">
+        <label>Service Variable Name (e.g., _service):</label>
+        <input class="form-control" @bind="ServiceVariable" />
+    </div>
+    <div class="mb-3">
+        <label>Service Method Name (e.g., GetInventorySubmission):</label>
+        <input class="form-control" @bind="ServiceMethodName" />
+    </div>
+    <div class="mb-3">
+        <label>Service Method Parameters (comma-separated):</label>
+        <input class="form-control" @bind="ServiceMethodParameters" />
+    </div>
+}
+
+
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="GenerateCode">Generate</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(GeneratedCode))
+{
+    <h4 class="mt-4">Generated Code</h4>
+    <pre style="background:#f5f5f5;padding:15px;border-radius:5px;overflow:auto;">@GeneratedCode</pre>
+    <button class="btn btn-secondary mt-2" @onclick="CopyToClipboard">Copy Controller Code</button>
+}
+
+@if (!string.IsNullOrWhiteSpace(GeneratedDIRegistration))
+{
+    <h5 class="mt-4">Service Registration for DI (Program.cs)</h5>
+    <pre style="background:#f5f5f5;padding:10px;border-radius:5px;">@GeneratedDIRegistration</pre>
+    <button class="btn btn-secondary mt-2" @onclick="CopyDIToClipboard">Copy DI Code</button>
+}
+
+@code {
+    string GenerationMode = "Controller";
+    string ControllerName = "TestController";
+    string MethodName = "TestMethod";
+    string HttpVerb = "HttpPost";
+    string RouteName = "TestMethod";
+    string ReturnType = "ActionResult";
+    string CustomReturnType = "";
+    bool IsAsync = false;
+    bool WrapInTryCatch = true;
+    bool InjectLogger = true;
+    bool InjectService = true;
+    string ServiceName = "MyService";
+    string IServiceName = "IMyService";
+    bool IncludeSummary = true;
+    bool IncludeProducesResponse = true;
+    bool RequireAuthorization = false;
+    string ParameterName = "request";
+    string ParameterType = "string";
+    string CustomParameterType = "";
+    string ParameterBinding = "FromBody";
+    bool IncludeServiceCall = false;
+    string ServiceInterface = "IYourService";
+    string ServiceVariable = "_service";
+    string ServiceMethodName = "YourMethod";
+    string ServiceMethodParameters = "";
+
+
+    List<MethodParameter> Parameters = new() { new MethodParameter() };
+    string GeneratedCode;
+    string GeneratedDIRegistration;
+
+    class MethodParameter
+    {
+        public string Name { get; set; } = "param";
+        public string Type { get; set; } = "string";
+        public string CustomType { get; set; } = "";
+        public string Binding { get; set; } = "FromBody";
+    }
+
+    void AddParameter() => Parameters.Add(new MethodParameter());
+
+    void RemoveParameter(MethodParameter param) => Parameters.Remove(param);
+
+    void GenerateCode()
+    {
+        var returnType = ReturnType == "other" ? CustomReturnType : ReturnType;
+        var parameterType = ParameterType == "other" ? CustomParameterType : ParameterType;
+        var binding = ParameterBinding != "None" ? $"[{ParameterBinding}]" : "";
+
+        var builder = new StringBuilder();
+
+        if (GenerationMode == "Controller")
+        {
+            builder.AppendLine("[ApiController]");
+            builder.AppendLine("[Route(\"api/[controller]\")]");
+            builder.AppendLine($"public class {ControllerName}Controller : ControllerBase");
+            builder.AppendLine("{");
+
+            // Fields
+            if (InjectLogger)
+                builder.AppendLine($"    private readonly ILogger<{ControllerName}Controller> _logger;");
+            if (InjectService && !string.IsNullOrWhiteSpace(ServiceName))
+                builder.AppendLine($"    private readonly {ServiceName} {ServiceVariable};");
+
+            // Constructor
+            if (InjectLogger || InjectService)
+            {
+                builder.Append($"    public {ControllerName}Controller(");
+                var injections = new List<string>();
+                if (InjectLogger)
+                    injections.Add($"ILogger<{ControllerName}Controller> logger");
+                if (InjectService && !string.IsNullOrWhiteSpace(ServiceName))
+                    injections.Add($"{ServiceName} service");
+                builder.AppendLine(string.Join(", ", injections) + ")");
+                builder.AppendLine("    {");
+                if (InjectLogger)
+                    builder.AppendLine("        _logger = logger;");
+                if (InjectService && !string.IsNullOrWhiteSpace(ServiceName))
+                    builder.AppendLine($"        {ServiceVariable} = service;");
+                builder.AppendLine("    }");
+            }
+        }
+
+        if (IncludeSummary)
+        {
+            builder.AppendLine("    /// <summary>");
+            builder.AppendLine($"    /// {MethodName} method");
+            //Dhilip - need to add parameters
+            //builder.AppendLine($"    ///Parameters {} method");
+            builder.AppendLine("    /// </summary>");
+        }
+
+        builder.AppendLine($"    [{HttpVerb}(\"{RouteName}\")]");
+        if (RequireAuthorization) builder.AppendLine("    [Authorize]");
+        builder.Append($"    public {(IsAsync ? "async Task<" : "")}{returnType}{(IsAsync ? ">" : "")} {MethodName}(");
+        var paramStrings = Parameters.Select(p =>
+        {
+            var type = p.Type == "other" ? p.CustomType : p.Type;
+            var binding = p.Binding != "None" ? $"[{p.Binding}]" : "";
+            return $"{binding} {type} {p.Name}";
+        });
+        builder.Append(string.Join(", ", paramStrings));
+        builder.AppendLine(")");
+
+        builder.AppendLine("    {");
+
+        if (WrapInTryCatch)
+        {
+            builder.AppendLine("        try");
+            builder.AppendLine("        {");
+            builder.AppendLine("            // Your logic here");
+            if (IncludeServiceCall)
+            {
+                string awaitPart = IsAsync ? "await " : "";
+                string resultVar = returnType != "void" && returnType != "Task" ? "var result = " : "";
+                string serviceCall = $"{awaitPart}{ServiceVariable}.{ServiceMethodName}({ServiceMethodParameters});";
+
+                if (!string.IsNullOrWhiteSpace(resultVar))
+                    builder.AppendLine($"        {resultVar}{serviceCall}");
+                else
+                    builder.AppendLine($"        {serviceCall}");
+
+                if (returnType.Contains("StandardResponse"))
+                    builder.AppendLine("        return result;");
+                else if (!returnType.Contains("void") && !returnType.Contains("Task"))
+                    builder.AppendLine("        return Ok(result);");
+            }
+            else
+            {
+                builder.AppendLine("        // Your logic here");
+                builder.AppendLine($"        return {(returnType.Contains("StandardResponse") ? "new StandardResponse();" : "Ok();")}");
+            }
+            // builder.AppendLine("            return Ok();");
+            builder.AppendLine("        }");
+            builder.AppendLine("        catch (Exception ex)");
+            builder.AppendLine("        {");
+            if (InjectLogger)
+                builder.AppendLine("            _logger.LogError(ex, \"An error occurred in method\");");
+            builder.AppendLine("            return BadRequest($\"Error: {ex.Message}\");");
+            builder.AppendLine("        }");
+        }
+        else
+        {
+            builder.AppendLine("        // Your logic here");
+            builder.AppendLine("        return Ok();");
+        }
+
+        builder.AppendLine("    }");
+
+        if (GenerationMode == "Controller")
+            builder.AppendLine("}");
+
+        GeneratedCode = builder.ToString();
+
+        if (GenerationMode == "Controller")
+        {
+            GeneratedDIRegistration = $"builder.Services.AddScoped<I{ServiceName}, {ServiceName}>();";
+        }
+        else
+        {
+            GeneratedDIRegistration = string.Empty;
+        }
+    }
+
+    async Task CopyToClipboard()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", GeneratedCode);
+    }
+
+    async Task CopyDIToClipboard()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", GeneratedDIRegistration);
+    }
+}

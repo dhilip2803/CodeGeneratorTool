@@ -1,0 +1,55 @@
+﻿@page "/generate"
+@using CodeGeneratorTool.Models
+@using CodeGeneratorTool.Services
+@inject CodeBuilderService CodeBuilder
+
+<h3>Code Generator</h3>
+
+<div class="form-group">
+    <label>Controller Name</label>
+    <input class="form-control" @bind="Input.ControllerName" />
+</div>
+<div class="form-group">
+    <label>Parameter Name</label>
+    <input class="form-control" @bind="Input.ParameterName" />
+</div>
+<div class="form-group">
+    <label>Return Type</label>
+    <select class="form-control" @bind="Input.ReturnType">
+        <option>StandardResponse</option>
+        <option>string</option>
+        <option>int</option>
+        <option>Other</option>
+    </select>
+</div>
+@if (Input.ReturnType == "Other")
+{
+    <input class="form-control" placeholder="Enter custom return type" @bind="Input.ReturnType" />
+}
+
+<!-- Add similar for ParameterType, RouteName, etc. -->
+
+<div class="form-check">
+    <input class="form-check-input" type="checkbox" @bind="Input.IsAsync" />
+    <label class="form-check-label">Async Method</label>
+</div>
+
+<button class="btn btn-primary mt-3" @onclick="Generate">Generate Code</button>
+
+@if (!string.IsNullOrWhiteSpace(GeneratedCode))
+{
+    <hr />
+    <h5>Generated Controller Code</h5>
+    <pre>@GeneratedCode</pre>
+    <CopyToClipboardButton TextToCopy="@GeneratedCode" />
+}
+
+@code {
+    private CodeGenerationInput Input = new();
+    private string GeneratedCode;
+
+    private void Generate()
+    {
+        GeneratedCode = CodeBuilder.GenerateController(Input);
+    }
+}
